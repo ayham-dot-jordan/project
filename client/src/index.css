@@ -482,3 +482,7 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.notes-search {
+  grid-template-columns: 1fr;
+}
