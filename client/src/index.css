@@ -380,3 +380,67 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.simple-form {
+  display: grid;
+  gap: 16px;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.item-card {
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+  border-radius: 12px;
+  background-color: #ffffff;
+}
+
+.item-card h3 {
+  margin: 0 0 12px;
+  color: #111827;
+}
+
+.item-card p {
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.edit-button,
+.delete-button {
+  border: none;
+  padding: 9px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.edit-button {
+  background-color: #f59e0b;
+  color: white;
+}
+
+.delete-button {
+  background-color: #dc2626;
+  color: white;
+}
+
+@media (max-width: 900px) {
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
