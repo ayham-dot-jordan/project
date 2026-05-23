@@ -22,7 +22,7 @@ function Landing() {
         <h1>Organize Your Study Life in One Place</h1>
         <p>
           StudyHub helps students manage courses, tasks, notes, and deadlines
-          from one simple dashboard.
+          from one simple dashboard
         </p>
 
         <div className="hero-buttons">
@@ -43,7 +43,7 @@ function Landing() {
             <h3>Courses</h3>
             <p>
               Add your courses and keep your study subjects organized in one
-              place.
+              place
             </p>
           </div>
 
@@ -51,14 +51,14 @@ function Landing() {
             <h3>Tasks</h3>
             <p>
               Create tasks, set priorities, add deadlines, and track your
-              progress.
+              progress
             </p>
           </div>
 
           <div className="feature-card">
             <h3>Notes</h3>
             <p>
-              Save important notes for each course and search them when needed.
+              Save important notes for each course and search them when needed
             </p>
           </div>
         </div>
