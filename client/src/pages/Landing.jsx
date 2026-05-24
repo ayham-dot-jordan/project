@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom"
+import heroImage from "../assets/students.jpg"
 
 function Landing() {
   return (
@@ -19,21 +20,29 @@ function Landing() {
       </nav>
 
       <section className="hero">
-        <h1>Keep your study work organized</h1>
-        <p>
-          StudyHub helps students manage courses, tasks, notes, and deadlines in
-          one simple place
-        </p>
+  <div className="hero-content">
+    <div className="hero-text">
+      <h1>Keep your study work organized</h1>
+      <p>
+        StudyHub helps students manage courses, tasks, notes, and deadlines in
+        one simple place
+      </p>
 
-        <div className="hero-buttons">
-          <Link to="/register" className="primary-button">
-            Start Organizing
-          </Link>
-          <Link to="/login" className="secondary-button">
-            Login
-          </Link>
-        </div>
-      </section>
+      <div className="hero-buttons">
+        <Link to="/register" className="primary-button">
+          Start Organizing
+        </Link>
+        <Link to="/login" className="secondary-button">
+          Login
+        </Link>
+      </div>
+    </div>
+
+    <div className="hero-image">
+      <img src={heroImage} alt="Students studying together" />
+    </div>
+  </div>
+</section>
 
       <section className="features">
         <h2>Why StudyHub</h2>
