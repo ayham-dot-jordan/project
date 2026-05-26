@@ -1,8 +1,14 @@
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { Formik, Form, Field, ErrorMessage } from "formik"
 import * as Yup from "yup"
+import { useState } from "react"
+import api from "../api/axios"
 
 function Login() {
+  const navigate = useNavigate()
+  const [serverError, setServerError] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+
   const initialValues = {
     email: "",
     password: "",
@@ -15,8 +21,19 @@ function Login() {
     password: Yup.string().required("Password is required"),
   })
 
-  const handleSubmit = (values) => {
-    console.log(values)
+  const handleSubmit = async (values) => {
+    try {
+      setServerError("")
+
+      const response = await api.post("/auth/login", values)
+
+      localStorage.setItem("token", response.data.token)
+      localStorage.setItem("user", JSON.stringify(response.data.user))
+
+      navigate("/dashboard")
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Login failed")
+    }
   }
 
   return (
@@ -28,6 +45,8 @@ function Login() {
 
         <h1>Login</h1>
         <p className="auth-text">Login to continue organizing your study work</p>
+
+        {serverError && <div className="server-error">{serverError}</div>}
 
         <Formik
           initialValues={initialValues}
@@ -43,11 +62,23 @@ function Login() {
 
             <div className="form-group">
               <label>Password</label>
-              <Field
-                type="password"
-                name="password"
-                placeholder="Enter your password"
-              />
+
+              <div className="password-field">
+                <Field
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Enter your password"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="password-toggle"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+
               <ErrorMessage name="password" component="div" className="error" />
             </div>
 

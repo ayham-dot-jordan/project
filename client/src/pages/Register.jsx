@@ -1,14 +1,21 @@
-import { Link } from "react-router-dom";
-import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
+import { Link, useNavigate } from "react-router-dom"
+import { Formik, Form, Field, ErrorMessage } from "formik"
+import * as Yup from "yup"
+import { useState } from "react"
+import api from "../api/axios"
 
 function Register() {
+  const navigate = useNavigate()
+  const [serverError, setServerError] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
   const initialValues = {
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
-  };
+  }
 
   const validationSchema = Yup.object({
     name: Yup.string().required("Full name is required"),
@@ -21,11 +28,23 @@ function Register() {
     confirmPassword: Yup.string()
       .oneOf([Yup.ref("password")], "Passwords must match")
       .required("Confirm password is required"),
-  });
+  })
 
-  const handleSubmit = (values) => {
-    console.log(values);
-  };
+  const handleSubmit = async (values) => {
+    try {
+      setServerError("")
+
+      await api.post("/auth/register", {
+        name: values.name,
+        email: values.email,
+        password: values.password,
+      })
+
+      navigate("/login")
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Register failed")
+    }
+  }
 
   return (
     <div className="auth-page">
@@ -35,7 +54,9 @@ function Register() {
         </Link>
 
         <h1>Create Account</h1>
-        <p className="auth-text">Create your account to start organizing your study work</p>
+        <p className="auth-text">Create your account and start organizing your study work</p>
+
+        {serverError && <div className="server-error">{serverError}</div>}
 
         <Formik
           initialValues={initialValues}
@@ -57,17 +78,45 @@ function Register() {
 
             <div className="form-group">
               <label>Password</label>
-              <Field type="password" name="password" placeholder="Enter your password" />
+
+              <div className="password-field">
+                <Field
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Enter your password"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="password-toggle"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+
               <ErrorMessage name="password" component="div" className="error" />
             </div>
 
             <div className="form-group">
               <label>Confirm Password</label>
-              <Field
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm your password"
-              />
+
+              <div className="password-field">
+                <Field
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  placeholder="Confirm your password"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="password-toggle"
+                >
+                  {showConfirmPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+
               <ErrorMessage name="confirmPassword" component="div" className="error" />
             </div>
 
@@ -82,7 +131,7 @@ function Register() {
         </p>
       </div>
     </div>
-  );
+  )
 }
 
-export default Register;
+export default Register
