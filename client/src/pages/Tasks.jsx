@@ -19,6 +19,7 @@ function Tasks() {
 
   const [editingId, setEditingId] = useState(null)
   const formRef = useRef(null)
+
   const [searchText, setSearchText] = useState("")
   const [priorityFilter, setPriorityFilter] = useState("All")
   const [statusFilter, setStatusFilter] = useState("All")
@@ -72,7 +73,7 @@ function Tasks() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.title) {
+    if (!formData.title.trim()) {
       alert("Task title is required")
       return
     }
@@ -86,27 +87,17 @@ function Tasks() {
         course: formData.course || null,
         priority: formData.priority,
         status: formData.status,
-        dueDate: formData.dueDate,
+        dueDate: formData.dueDate || null,
       }
 
       if (editingId) {
-        const response = await api.put(`/tasks/${editingId}`, taskData)
-
-        const updatedTasks = tasks.map((task) => {
-          if (task._id === editingId) {
-            return response.data
-          }
-
-          return task
-        })
-
-        setTasks(updatedTasks)
-        clearForm()
+        await api.put(`/tasks/${editingId}`, taskData)
       } else {
-        const response = await api.post("/tasks", taskData)
-        setTasks([response.data, ...tasks])
-        clearForm()
+        await api.post("/tasks", taskData)
       }
+
+      await getTasks()
+      clearForm()
     } catch (error) {
       setServerError(error.response?.data?.message || "Something went wrong")
     }
@@ -116,11 +107,11 @@ function Tasks() {
     setEditingId(task._id)
 
     setFormData({
-      title: task.title,
-      description: task.description,
-      course: task.course?._id || "",
-      priority: task.priority,
-      status: task.status,
+      title: task.title || "",
+      description: task.description || "",
+      course: typeof task.course === "string" ? task.course : task.course?._id || "",
+      priority: task.priority || "Medium",
+      status: task.status || "Pending",
       dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
     })
 
@@ -135,47 +126,49 @@ function Tasks() {
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this task")
 
-    if (confirmDelete) {
-      try {
-        await api.delete(`/tasks/${id}`)
+    if (!confirmDelete) {
+      return
+    }
 
-        const filteredTasks = tasks.filter((task) => task._id !== id)
-        setTasks(filteredTasks)
-      } catch (error) {
-        setServerError(error.response?.data?.message || "Failed to delete task")
-      }
+    try {
+      await api.delete(`/tasks/${id}`)
+      await getTasks()
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to delete task")
     }
   }
 
   const handleComplete = async (id) => {
     try {
-      const response = await api.patch(`/tasks/${id}/complete`)
-
-      const updatedTasks = tasks.map((task) => {
-        if (task._id === id) {
-          return response.data
-        }
-
-        return task
-      })
-
-      setTasks(updatedTasks)
+      await api.patch(`/tasks/${id}/complete`)
+      await getTasks()
     } catch (error) {
       setServerError(error.response?.data?.message || "Failed to complete task")
     }
   }
 
   const getCourseName = (task) => {
-    return task.course ? task.course.title : "No course"
+    if (!task.course) {
+      return "No course"
+    }
+
+    if (typeof task.course === "string") {
+      const foundCourse = courses.find((course) => course._id === task.course)
+      return foundCourse ? foundCourse.title : "No course"
+    }
+
+    return task.course.title || "No course"
   }
 
   const filteredTasks = tasks.filter((task) => {
     const searchValue = searchText.toLowerCase()
     const courseName = getCourseName(task).toLowerCase()
+    const title = task.title || ""
+    const description = task.description || ""
 
     const matchesSearch =
-      task.title.toLowerCase().includes(searchValue) ||
-      task.description.toLowerCase().includes(searchValue) ||
+      title.toLowerCase().includes(searchValue) ||
+      description.toLowerCase().includes(searchValue) ||
       courseName.includes(searchValue)
 
     const matchesPriority = priorityFilter === "All" || task.priority === priorityFilter
@@ -310,7 +303,7 @@ function Tasks() {
             ) : (
               filteredTasks.map((task) => (
                 <div className="item-card" key={task._id}>
-                  <h3>{task.title}</h3>
+                  <h3>{task.title || "Untitled task"}</h3>
                   <p>{task.description || "No description added"}</p>
 
                   <p>
@@ -318,11 +311,11 @@ function Tasks() {
                   </p>
 
                   <p>
-                    <strong>Priority:</strong> {task.priority}
+                    <strong>Priority:</strong> {task.priority || "Medium"}
                   </p>
 
                   <p>
-                    <strong>Status:</strong> {task.status}
+                    <strong>Status:</strong> {task.status || "Pending"}
                   </p>
 
                   <p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import DashboardLayout from "../components/DashboardLayout"
 import api from "../api/axios"
 
@@ -14,6 +14,7 @@ function Courses() {
   })
 
   const [editingId, setEditingId] = useState(null)
+  const formRef = useRef(null)
 
   const getCourses = async () => {
     try {
@@ -38,10 +39,20 @@ function Courses() {
     })
   }
 
+  const clearForm = () => {
+    setFormData({
+      title: "",
+      instructor: "",
+      description: "",
+    })
+
+    setEditingId(null)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.title) {
+    if (!formData.title.trim()) {
       alert("Course title is required")
       return
     }
@@ -50,28 +61,13 @@ function Courses() {
       setServerError("")
 
       if (editingId) {
-        const response = await api.put(`/courses/${editingId}`, formData)
-
-        const updatedCourses = courses.map((course) => {
-          if (course._id === editingId) {
-            return response.data
-          }
-
-          return course
-        })
-
-        setCourses(updatedCourses)
-        setEditingId(null)
+        await api.put(`/courses/${editingId}`, formData)
       } else {
-        const response = await api.post("/courses", formData)
-        setCourses([response.data, ...courses])
+        await api.post("/courses", formData)
       }
 
-      setFormData({
-        title: "",
-        instructor: "",
-        description: "",
-      })
+      await getCourses()
+      clearForm()
     } catch (error) {
       setServerError(error.response?.data?.message || "Something went wrong")
     }
@@ -81,24 +77,31 @@ function Courses() {
     setEditingId(course._id)
 
     setFormData({
-      title: course.title,
-      instructor: course.instructor,
-      description: course.description,
+      title: course.title || "",
+      instructor: course.instructor || "",
+      description: course.description || "",
     })
+
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    }, 100)
   }
 
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this course")
 
-    if (confirmDelete) {
-      try {
-        await api.delete(`/courses/${id}`)
+    if (!confirmDelete) {
+      return
+    }
 
-        const filteredCourses = courses.filter((course) => course._id !== id)
-        setCourses(filteredCourses)
-      } catch (error) {
-        setServerError(error.response?.data?.message || "Failed to delete course")
-      }
+    try {
+      await api.delete(`/courses/${id}`)
+      await getCourses()
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to delete course")
     }
   }
 
@@ -111,7 +114,7 @@ function Courses() {
 
       {serverError && <div className="server-error">{serverError}</div>}
 
-      <div className="content-card">
+      <div className="content-card" ref={formRef}>
         <h2>{editingId ? "Edit Course" : "Add Course"}</h2>
 
         <form onSubmit={handleSubmit} className="simple-form">
@@ -147,9 +150,17 @@ function Courses() {
             ></textarea>
           </div>
 
-          <button type="submit" className="full-button">
-            {editingId ? "Update Course" : "Save Course"}
-          </button>
+          <div className="form-buttons">
+            <button type="submit" className="full-button">
+              {editingId ? "Update Course" : "Save Course"}
+            </button>
+
+            {editingId && (
+              <button type="button" onClick={clearForm} className="cancel-button">
+                Cancel Edit
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -165,7 +176,7 @@ function Courses() {
             ) : (
               courses.map((course) => (
                 <div className="item-card" key={course._id}>
-                  <h3>{course.title}</h3>
+                  <h3>{course.title || "Untitled course"}</h3>
 
                   <p>
                     <strong>Instructor:</strong> {course.instructor || "Not added"}

@@ -64,12 +64,12 @@ function Notes() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.title) {
+    if (!formData.title.trim()) {
       alert("Note title is required")
       return
     }
 
-    if (!formData.content) {
+    if (!formData.content.trim()) {
       alert("Note content is required")
       return
     }
@@ -84,23 +84,13 @@ function Notes() {
       }
 
       if (editingId) {
-        const response = await api.put(`/notes/${editingId}`, noteData)
-
-        const updatedNotes = notes.map((note) => {
-          if (note._id === editingId) {
-            return response.data
-          }
-
-          return note
-        })
-
-        setNotes(updatedNotes)
-        clearForm()
+        await api.put(`/notes/${editingId}`, noteData)
       } else {
-        const response = await api.post("/notes", noteData)
-        setNotes([response.data, ...notes])
-        clearForm()
+        await api.post("/notes", noteData)
       }
+
+      await getNotes()
+      clearForm()
     } catch (error) {
       setServerError(error.response?.data?.message || "Something went wrong")
     }
@@ -110,9 +100,9 @@ function Notes() {
     setEditingId(note._id)
 
     setFormData({
-      title: note.title,
-      content: note.content,
-      course: note.course?._id || "",
+      title: note.title || "",
+      content: note.content || "",
+      course: typeof note.course === "string" ? note.course : note.course?._id || "",
     })
 
     setTimeout(() => {
@@ -126,29 +116,40 @@ function Notes() {
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this note")
 
-    if (confirmDelete) {
-      try {
-        await api.delete(`/notes/${id}`)
+    if (!confirmDelete) {
+      return
+    }
 
-        const filteredNotes = notes.filter((note) => note._id !== id)
-        setNotes(filteredNotes)
-      } catch (error) {
-        setServerError(error.response?.data?.message || "Failed to delete note")
-      }
+    try {
+      await api.delete(`/notes/${id}`)
+      await getNotes()
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to delete note")
     }
   }
 
   const getCourseName = (note) => {
-    return note.course ? note.course.title : "No course"
+    if (!note.course) {
+      return "No course"
+    }
+
+    if (typeof note.course === "string") {
+      const foundCourse = courses.find((course) => course._id === note.course)
+      return foundCourse ? foundCourse.title : "No course"
+    }
+
+    return note.course.title || "No course"
   }
 
   const filteredNotes = notes.filter((note) => {
     const searchValue = searchText.toLowerCase()
     const courseName = getCourseName(note).toLowerCase()
+    const title = note.title || ""
+    const content = note.content || ""
 
     return (
-      note.title.toLowerCase().includes(searchValue) ||
-      note.content.toLowerCase().includes(searchValue) ||
+      title.toLowerCase().includes(searchValue) ||
+      content.toLowerCase().includes(searchValue) ||
       courseName.includes(searchValue)
     )
   })
@@ -235,13 +236,13 @@ function Notes() {
             ) : (
               filteredNotes.map((note) => (
                 <div className="item-card" key={note._id}>
-                  <h3>{note.title}</h3>
+                  <h3>{note.title || "Untitled note"}</h3>
 
                   <p>
                     <strong>Course:</strong> {getCourseName(note)}
                   </p>
 
-                  <p>{note.content}</p>
+                  <p>{note.content || "No content added"}</p>
 
                   <div className="card-actions">
                     <button onClick={() => handleEdit(note)} className="edit-button">
