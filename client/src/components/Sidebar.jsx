@@ -5,12 +5,15 @@ function Sidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem("token")
+    localStorage.removeItem("user")
     navigate("/login")
   }
 
   return (
     <div className="sidebar">
-      <h2 className="sidebar-logo">StudyHub</h2>
+      <Link to="/" className="sidebar-logo">
+        StudyHub
+      </Link>
 
       <div className="sidebar-links">
         <Link to="/dashboard">Dashboard</Link>

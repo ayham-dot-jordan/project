@@ -272,9 +272,11 @@ a {
 }
 
 .sidebar-logo {
+  display: block;
   color: white;
   margin: 0 0 35px;
   font-size: 24px;
+  font-weight: bold;
 }
 
 .sidebar-links {
