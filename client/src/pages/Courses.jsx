@@ -1,21 +1,11 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import DashboardLayout from "../components/DashboardLayout"
+import api from "../api/axios"
 
 function Courses() {
-  const [courses, setCourses] = useState([
-    {
-      id: 1,
-      title: "React",
-      instructor: "Course instructor",
-      description: "Frontend course for building user interfaces",
-    },
-    {
-      id: 2,
-      title: "Backend",
-      instructor: "Course instructor",
-      description: "Node and Express course",
-    },
-  ])
+  const [courses, setCourses] = useState([])
+  const [serverError, setServerError] = useState("")
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     title: "",
@@ -25,6 +15,22 @@ function Courses() {
 
   const [editingId, setEditingId] = useState(null)
 
+  const getCourses = async () => {
+    try {
+      setLoading(true)
+      const response = await api.get("/courses")
+      setCourses(response.data)
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to load courses")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    getCourses()
+  }, [])
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -32,7 +38,7 @@ function Courses() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     if (!formData.title) {
@@ -40,42 +46,40 @@ function Courses() {
       return
     }
 
-    if (editingId) {
-      const updatedCourses = courses.map((course) => {
-        if (course.id === editingId) {
-          return {
-            ...course,
-            title: formData.title,
-            instructor: formData.instructor,
-            description: formData.description,
+    try {
+      setServerError("")
+
+      if (editingId) {
+        const response = await api.put(`/courses/${editingId}`, formData)
+
+        const updatedCourses = courses.map((course) => {
+          if (course._id === editingId) {
+            return response.data
           }
-        }
 
-        return course
-      })
+          return course
+        })
 
-      setCourses(updatedCourses)
-      setEditingId(null)
-    } else {
-      const newCourse = {
-        id: Date.now(),
-        title: formData.title,
-        instructor: formData.instructor,
-        description: formData.description,
+        setCourses(updatedCourses)
+        setEditingId(null)
+      } else {
+        const response = await api.post("/courses", formData)
+        setCourses([response.data, ...courses])
       }
 
-      setCourses([...courses, newCourse])
+      setFormData({
+        title: "",
+        instructor: "",
+        description: "",
+      })
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Something went wrong")
     }
-
-    setFormData({
-      title: "",
-      instructor: "",
-      description: "",
-    })
   }
 
   const handleEdit = (course) => {
-    setEditingId(course.id)
+    setEditingId(course._id)
+
     setFormData({
       title: course.title,
       instructor: course.instructor,
@@ -83,12 +87,18 @@ function Courses() {
     })
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this course")
 
     if (confirmDelete) {
-      const filteredCourses = courses.filter((course) => course.id !== id)
-      setCourses(filteredCourses)
+      try {
+        await api.delete(`/courses/${id}`)
+
+        const filteredCourses = courses.filter((course) => course._id !== id)
+        setCourses(filteredCourses)
+      } catch (error) {
+        setServerError(error.response?.data?.message || "Failed to delete course")
+      }
     }
   }
 
@@ -98,6 +108,8 @@ function Courses() {
         <h1>Courses</h1>
         <p>Add and manage your study courses</p>
       </div>
+
+      {serverError && <div className="server-error">{serverError}</div>}
 
       <div className="content-card">
         <h2>{editingId ? "Edit Course" : "Add Course"}</h2>
@@ -144,30 +156,37 @@ function Courses() {
       <div className="content-card">
         <h2>My Courses</h2>
 
-        <div className="cards-grid">
-          {courses.length === 0 ? (
-            <p>No courses added yet</p>
-          ) : (
-            courses.map((course) => (
-              <div className="item-card" key={course.id}>
-                <h3>{course.title}</h3>
-                <p>
-                  <strong>Instructor:</strong> {course.instructor || "Not added"}
-                </p>
-                <p>{course.description || "No description added"}</p>
+        {loading ? (
+          <p>Loading courses</p>
+        ) : (
+          <div className="cards-grid">
+            {courses.length === 0 ? (
+              <p>No courses added yet</p>
+            ) : (
+              courses.map((course) => (
+                <div className="item-card" key={course._id}>
+                  <h3>{course.title}</h3>
 
-                <div className="card-actions">
-                  <button onClick={() => handleEdit(course)} className="edit-button">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(course.id)} className="delete-button">
-                    Delete
-                  </button>
+                  <p>
+                    <strong>Instructor:</strong> {course.instructor || "Not added"}
+                  </p>
+
+                  <p>{course.description || "No description added"}</p>
+
+                  <div className="card-actions">
+                    <button onClick={() => handleEdit(course)} className="edit-button">
+                      Edit
+                    </button>
+
+                    <button onClick={() => handleDelete(course._id)} className="delete-button">
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )
