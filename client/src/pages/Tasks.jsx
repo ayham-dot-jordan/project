@@ -1,47 +1,53 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import DashboardLayout from "../components/DashboardLayout"
+import api from "../api/axios"
 
 function Tasks() {
-  const courses = [
-    { id: 1, title: "React" },
-    { id: 2, title: "Backend" },
-    { id: 3, title: "Database" },
-  ]
-
-  const [tasks, setTasks] = useState([
-    {
-      id: 1,
-      title: "Finish React components",
-      description: "Complete the main pages and layout",
-      courseId: 1,
-      priority: "High",
-      status: "In Progress",
-      dueDate: "2026-05-25",
-    },
-    {
-      id: 2,
-      title: "Review MongoDB notes",
-      description: "Study database collections and documents",
-      courseId: 3,
-      priority: "Medium",
-      status: "Pending",
-      dueDate: "2026-05-28",
-    },
-  ])
+  const [tasks, setTasks] = useState([])
+  const [courses, setCourses] = useState([])
+  const [serverError, setServerError] = useState("")
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    courseId: "",
+    course: "",
     priority: "Medium",
     status: "Pending",
     dueDate: "",
   })
 
   const [editingId, setEditingId] = useState(null)
+  const formRef = useRef(null)
   const [searchText, setSearchText] = useState("")
   const [priorityFilter, setPriorityFilter] = useState("All")
   const [statusFilter, setStatusFilter] = useState("All")
+
+  const getTasks = async () => {
+    try {
+      setLoading(true)
+      const response = await api.get("/tasks")
+      setTasks(response.data)
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to load tasks")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getCourses = async () => {
+    try {
+      const response = await api.get("/courses")
+      setCourses(response.data)
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to load courses")
+    }
+  }
+
+  useEffect(() => {
+    getTasks()
+    getCourses()
+  }, [])
 
   const handleChange = (e) => {
     setFormData({
@@ -50,7 +56,20 @@ function Tasks() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const clearForm = () => {
+    setFormData({
+      title: "",
+      description: "",
+      course: "",
+      priority: "Medium",
+      status: "Pending",
+      dueDate: "",
+    })
+
+    setEditingId(null)
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     if (!formData.title) {
@@ -58,94 +77,101 @@ function Tasks() {
       return
     }
 
-    if (editingId) {
-      const updatedTasks = tasks.map((task) => {
-        if (task.id === editingId) {
-          return {
-            ...task,
-            title: formData.title,
-            description: formData.description,
-            courseId: Number(formData.courseId),
-            priority: formData.priority,
-            status: formData.status,
-            dueDate: formData.dueDate,
+    try {
+      setServerError("")
+
+      const taskData = {
+        title: formData.title,
+        description: formData.description,
+        course: formData.course || null,
+        priority: formData.priority,
+        status: formData.status,
+        dueDate: formData.dueDate,
+      }
+
+      if (editingId) {
+        const response = await api.put(`/tasks/${editingId}`, taskData)
+
+        const updatedTasks = tasks.map((task) => {
+          if (task._id === editingId) {
+            return response.data
           }
+
+          return task
+        })
+
+        setTasks(updatedTasks)
+        clearForm()
+      } else {
+        const response = await api.post("/tasks", taskData)
+        setTasks([response.data, ...tasks])
+        clearForm()
+      }
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Something went wrong")
+    }
+  }
+
+  const handleEdit = (task) => {
+    setEditingId(task._id)
+
+    setFormData({
+      title: task.title,
+      description: task.description,
+      course: task.course?._id || "",
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate ? task.dueDate.slice(0, 10) : "",
+    })
+
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    }, 100)
+  }
+
+  const handleDelete = async (id) => {
+    const confirmDelete = window.confirm("Are you sure you want to delete this task")
+
+    if (confirmDelete) {
+      try {
+        await api.delete(`/tasks/${id}`)
+
+        const filteredTasks = tasks.filter((task) => task._id !== id)
+        setTasks(filteredTasks)
+      } catch (error) {
+        setServerError(error.response?.data?.message || "Failed to delete task")
+      }
+    }
+  }
+
+  const handleComplete = async (id) => {
+    try {
+      const response = await api.patch(`/tasks/${id}/complete`)
+
+      const updatedTasks = tasks.map((task) => {
+        if (task._id === id) {
+          return response.data
         }
 
         return task
       })
 
       setTasks(updatedTasks)
-      setEditingId(null)
-    } else {
-      const newTask = {
-        id: Date.now(),
-        title: formData.title,
-        description: formData.description,
-        courseId: Number(formData.courseId),
-        priority: formData.priority,
-        status: formData.status,
-        dueDate: formData.dueDate,
-      }
-
-      setTasks([...tasks, newTask])
-    }
-
-    setFormData({
-      title: "",
-      description: "",
-      courseId: "",
-      priority: "Medium",
-      status: "Pending",
-      dueDate: "",
-    })
-  }
-
-  const handleEdit = (task) => {
-    setEditingId(task.id)
-
-    setFormData({
-      title: task.title,
-      description: task.description,
-      courseId: task.courseId,
-      priority: task.priority,
-      status: task.status,
-      dueDate: task.dueDate,
-    })
-  }
-
-  const handleDelete = (id) => {
-    const confirmDelete = window.confirm("Are you sure you want to delete this task")
-
-    if (confirmDelete) {
-      const filteredTasks = tasks.filter((task) => task.id !== id)
-      setTasks(filteredTasks)
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to complete task")
     }
   }
 
-  const handleComplete = (id) => {
-    const updatedTasks = tasks.map((task) => {
-      if (task.id === id) {
-        return {
-          ...task,
-          status: "Completed",
-        }
-      }
-
-      return task
-    })
-
-    setTasks(updatedTasks)
-  }
-
-  const getCourseName = (courseId) => {
-    const course = courses.find((course) => course.id === Number(courseId))
-    return course ? course.title : "No course"
+  const getCourseName = (task) => {
+    return task.course ? task.course.title : "No course"
   }
 
   const filteredTasks = tasks.filter((task) => {
     const searchValue = searchText.toLowerCase()
-    const courseName = getCourseName(task.courseId).toLowerCase()
+    const courseName = getCourseName(task).toLowerCase()
 
     const matchesSearch =
       task.title.toLowerCase().includes(searchValue) ||
@@ -165,7 +191,9 @@ function Tasks() {
         <p>Add and manage your study tasks</p>
       </div>
 
-      <div className="content-card">
+      {serverError && <div className="server-error">{serverError}</div>}
+
+      <div className="content-card" ref={formRef}>
         <h2>{editingId ? "Edit Task" : "Add Task"}</h2>
 
         <form onSubmit={handleSubmit} className="simple-form">
@@ -192,10 +220,11 @@ function Tasks() {
 
           <div className="form-group">
             <label>Course</label>
-            <select name="courseId" value={formData.courseId} onChange={handleChange}>
+            <select name="course" value={formData.course} onChange={handleChange}>
               <option value="">Select course</option>
+
               {courses.map((course) => (
-                <option value={course.id} key={course.id}>
+                <option value={course._id} key={course._id}>
                   {course.title}
                 </option>
               ))}
@@ -232,9 +261,17 @@ function Tasks() {
             />
           </div>
 
-          <button type="submit" className="full-button">
-            {editingId ? "Update Task" : "Save Task"}
-          </button>
+          <div className="form-buttons">
+            <button type="submit" className="full-button">
+              {editingId ? "Update Task" : "Save Task"}
+            </button>
+
+            {editingId && (
+              <button type="button" onClick={clearForm} className="cancel-button">
+                Cancel Edit
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -264,42 +301,53 @@ function Tasks() {
           </select>
         </div>
 
-        <div className="cards-grid">
-          {filteredTasks.length === 0 ? (
-            <p>No tasks found</p>
-          ) : (
-            filteredTasks.map((task) => (
-              <div className="item-card" key={task.id}>
-                <h3>{task.title}</h3>
-                <p>{task.description || "No description added"}</p>
-                <p>
-                  <strong>Course:</strong> {getCourseName(task.courseId)}
-                </p>
-                <p>
-                  <strong>Priority:</strong> {task.priority}
-                </p>
-                <p>
-                  <strong>Status:</strong> {task.status}
-                </p>
-                <p>
-                  <strong>Due Date:</strong> {task.dueDate || "No due date"}
-                </p>
+        {loading ? (
+          <p>Loading tasks</p>
+        ) : (
+          <div className="cards-grid">
+            {filteredTasks.length === 0 ? (
+              <p>No tasks found</p>
+            ) : (
+              filteredTasks.map((task) => (
+                <div className="item-card" key={task._id}>
+                  <h3>{task.title}</h3>
+                  <p>{task.description || "No description added"}</p>
 
-                <div className="card-actions">
-                  <button onClick={() => handleComplete(task.id)} className="complete-button">
-                    Complete
-                  </button>
-                  <button onClick={() => handleEdit(task)} className="edit-button">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(task.id)} className="delete-button">
-                    Delete
-                  </button>
+                  <p>
+                    <strong>Course:</strong> {getCourseName(task)}
+                  </p>
+
+                  <p>
+                    <strong>Priority:</strong> {task.priority}
+                  </p>
+
+                  <p>
+                    <strong>Status:</strong> {task.status}
+                  </p>
+
+                  <p>
+                    <strong>Due Date:</strong>{" "}
+                    {task.dueDate ? task.dueDate.slice(0, 10) : "No due date"}
+                  </p>
+
+                  <div className="card-actions">
+                    <button onClick={() => handleComplete(task._id)} className="complete-button">
+                      Complete
+                    </button>
+
+                    <button onClick={() => handleEdit(task)} className="edit-button">
+                      Edit
+                    </button>
+
+                    <button onClick={() => handleDelete(task._id)} className="delete-button">
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )
