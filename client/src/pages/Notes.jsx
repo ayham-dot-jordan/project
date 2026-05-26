@@ -1,36 +1,48 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import DashboardLayout from "../components/DashboardLayout"
+import api from "../api/axios"
 
 function Notes() {
-  const courses = [
-    { id: 1, title: "React" },
-    { id: 2, title: "Backend" },
-    { id: 3, title: "Database" },
-  ]
-
-  const [notes, setNotes] = useState([
-    {
-      id: 1,
-      title: "React notes",
-      content: "Components are used to split the UI into reusable parts",
-      courseId: 1,
-    },
-    {
-      id: 2,
-      title: "MongoDB notes",
-      content: "MongoDB stores data as documents inside collections",
-      courseId: 3,
-    },
-  ])
+  const [notes, setNotes] = useState([])
+  const [courses, setCourses] = useState([])
+  const [serverError, setServerError] = useState("")
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    courseId: "",
+    course: "",
   })
 
   const [editingId, setEditingId] = useState(null)
+  const formRef = useRef(null)
   const [searchText, setSearchText] = useState("")
+
+  const getNotes = async () => {
+    try {
+      setLoading(true)
+      const response = await api.get("/notes")
+      setNotes(response.data)
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to load notes")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getCourses = async () => {
+    try {
+      const response = await api.get("/courses")
+      setCourses(response.data)
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Failed to load courses")
+    }
+  }
+
+  useEffect(() => {
+    getNotes()
+    getCourses()
+  }, [])
 
   const handleChange = (e) => {
     setFormData({
@@ -39,7 +51,17 @@ function Notes() {
     })
   }
 
-  const handleSubmit = (e) => {
+  const clearForm = () => {
+    setFormData({
+      title: "",
+      content: "",
+      course: "",
+    })
+
+    setEditingId(null)
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
     if (!formData.title) {
@@ -52,67 +74,77 @@ function Notes() {
       return
     }
 
-    if (editingId) {
-      const updatedNotes = notes.map((note) => {
-        if (note.id === editingId) {
-          return {
-            ...note,
-            title: formData.title,
-            content: formData.content,
-            courseId: Number(formData.courseId),
-          }
-        }
+    try {
+      setServerError("")
 
-        return note
-      })
-
-      setNotes(updatedNotes)
-      setEditingId(null)
-    } else {
-      const newNote = {
-        id: Date.now(),
+      const noteData = {
         title: formData.title,
         content: formData.content,
-        courseId: Number(formData.courseId),
+        course: formData.course || null,
       }
 
-      setNotes([...notes, newNote])
-    }
+      if (editingId) {
+        const response = await api.put(`/notes/${editingId}`, noteData)
 
-    setFormData({
-      title: "",
-      content: "",
-      courseId: "",
-    })
+        const updatedNotes = notes.map((note) => {
+          if (note._id === editingId) {
+            return response.data
+          }
+
+          return note
+        })
+
+        setNotes(updatedNotes)
+        clearForm()
+      } else {
+        const response = await api.post("/notes", noteData)
+        setNotes([response.data, ...notes])
+        clearForm()
+      }
+    } catch (error) {
+      setServerError(error.response?.data?.message || "Something went wrong")
+    }
   }
 
   const handleEdit = (note) => {
-    setEditingId(note.id)
+    setEditingId(note._id)
 
     setFormData({
       title: note.title,
       content: note.content,
-      courseId: note.courseId,
+      course: note.course?._id || "",
     })
+
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      })
+    }, 100)
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this note")
 
     if (confirmDelete) {
-      const filteredNotes = notes.filter((note) => note.id !== id)
-      setNotes(filteredNotes)
+      try {
+        await api.delete(`/notes/${id}`)
+
+        const filteredNotes = notes.filter((note) => note._id !== id)
+        setNotes(filteredNotes)
+      } catch (error) {
+        setServerError(error.response?.data?.message || "Failed to delete note")
+      }
     }
   }
 
-  const getCourseName = (courseId) => {
-    const course = courses.find((course) => course.id === Number(courseId))
-    return course ? course.title : "No course"
+  const getCourseName = (note) => {
+    return note.course ? note.course.title : "No course"
   }
 
   const filteredNotes = notes.filter((note) => {
     const searchValue = searchText.toLowerCase()
-    const courseName = getCourseName(note.courseId).toLowerCase()
+    const courseName = getCourseName(note).toLowerCase()
 
     return (
       note.title.toLowerCase().includes(searchValue) ||
@@ -128,7 +160,9 @@ function Notes() {
         <p>Add and manage your study notes</p>
       </div>
 
-      <div className="content-card">
+      {serverError && <div className="server-error">{serverError}</div>}
+
+      <div className="content-card" ref={formRef}>
         <h2>{editingId ? "Edit Note" : "Add Note"}</h2>
 
         <form onSubmit={handleSubmit} className="simple-form">
@@ -145,10 +179,11 @@ function Notes() {
 
           <div className="form-group">
             <label>Course</label>
-            <select name="courseId" value={formData.courseId} onChange={handleChange}>
+            <select name="course" value={formData.course} onChange={handleChange}>
               <option value="">Select course</option>
+
               {courses.map((course) => (
-                <option value={course.id} key={course.id}>
+                <option value={course._id} key={course._id}>
                   {course.title}
                 </option>
               ))}
@@ -165,9 +200,17 @@ function Notes() {
             ></textarea>
           </div>
 
-          <button type="submit" className="full-button">
-            {editingId ? "Update Note" : "Save Note"}
-          </button>
+          <div className="form-buttons">
+            <button type="submit" className="full-button">
+              {editingId ? "Update Note" : "Save Note"}
+            </button>
+
+            {editingId && (
+              <button type="button" onClick={clearForm} className="cancel-button">
+                Cancel Edit
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -183,30 +226,37 @@ function Notes() {
           />
         </div>
 
-        <div className="cards-grid">
-          {filteredNotes.length === 0 ? (
-            <p>No notes found</p>
-          ) : (
-            filteredNotes.map((note) => (
-              <div className="item-card" key={note.id}>
-                <h3>{note.title}</h3>
-                <p>
-                  <strong>Course:</strong> {getCourseName(note.courseId)}
-                </p>
-                <p>{note.content}</p>
+        {loading ? (
+          <p>Loading notes</p>
+        ) : (
+          <div className="cards-grid">
+            {filteredNotes.length === 0 ? (
+              <p>No notes found</p>
+            ) : (
+              filteredNotes.map((note) => (
+                <div className="item-card" key={note._id}>
+                  <h3>{note.title}</h3>
 
-                <div className="card-actions">
-                  <button onClick={() => handleEdit(note)} className="edit-button">
-                    Edit
-                  </button>
-                  <button onClick={() => handleDelete(note.id)} className="delete-button">
-                    Delete
-                  </button>
+                  <p>
+                    <strong>Course:</strong> {getCourseName(note)}
+                  </p>
+
+                  <p>{note.content}</p>
+
+                  <div className="card-actions">
+                    <button onClick={() => handleEdit(note)} className="edit-button">
+                      Edit
+                    </button>
+
+                    <button onClick={() => handleDelete(note._id)} className="delete-button">
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   )
