@@ -681,3 +681,34 @@ a {
 .cancel-button:hover {
   background: #d1d5db;
 }
+
+.mini-list {
+  display: grid;
+  gap: 12px;
+}
+
+.mini-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 14px;
+  border-radius: 10px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.mini-list-item h4 {
+  margin: 0 0 6px;
+  color: #111827;
+}
+
+.mini-list-item p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.mini-list-item span {
+  color: #2563eb;
+  font-weight: bold;
+  white-space: nowrap;
+}
